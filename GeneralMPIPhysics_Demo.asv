@@ -115,7 +115,7 @@ for XPos_Ind = XZero_Ind:X_EndIndex
         drawnow
         AnimationFromBox.Position(1) = 1-AnimationFromBox.Position(3);
         AnimationFromBox.Position(2) = CitationBox.Position(2);
-        AnimationFromBox.Position(4) = CitationBox.Position(4);
+         AnimationFromBox.Position(2) = CitationBox.Position(4);
         P1 = subplot(2,3,1);
         P1.Position(2) = P1.Position(2)+.1;
         P1.Position(4) = P1.Position(4)-.1;

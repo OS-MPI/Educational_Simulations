@@ -1,0 +1,62 @@
+function [M] = Langevin(B,C,varargin)
+
+
+NumVarArgsIn = size(varargin,2);
+if mod(NumVarArgsIn,2)>0
+    error('Number of arguments inputted must be even')
+elseif NumVarArgsIn==0
+    
+        filename = [date(),'MPI_Physics_Vid.mp4'];
+    
+end
+
+varargin = reshape(varargin,2,NumVarArgsIn/2);
+
+for i = 1:NumVarArgsIn/2
+    if strcmpi(varargin(1,i),'FileName')
+        filename = cell2mat(varargin(2,i));
+    elseif exist('filename','var')
+    else
+        filename = [date(),'MPI_Physics_Vid.mp4'];
+    end
+    
+    if strcmpi(varargin(1,i),'VidFormat')
+        VidFormat = cell2mat(varargin(2,i));
+        
+        VidFormat(VidFormat=='.')=[]; %Making sure there is no period in the format. So ".GIF" goes to "GIF", Just for consistency
+        
+        if not(strcmpi(VidFormat,'mp4')|strcmpi(VidFormat,'gif'))
+            error('Video format must be mp4 or gif')
+        end
+        
+    elseif exist('VidFormatSelected','var')
+    else
+        VidFormat='mp4';
+
+    end
+    
+    if strcmpi(varargin(1,i),'MoveSample') %Selecting MoveSample as 1(Yes) or 0(No) moves the sample along the axis to show how the signal changes with biasing
+        MoveSample = cell2mat(varargin(2,i));
+        
+    elseif exist('MoveSampleSelected','var')
+    else
+        
+
+    end
+    
+end
+
+
+
+
+Kb = 1.38e-23; %J/k
+
+Ms = 446e3; %A/m
+T = 300; %K
+Vol = 4/3*pi*(12.5e-9)^3;%m^3 (12.5nm core radius)
+B(B==0)=eps;
+
+    M = C.*(coth(Vol*Ms*B./(Kb*T)) - (Kb*T)./(Vol*Ms*B));
+
+    
+end
