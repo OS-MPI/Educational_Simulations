@@ -168,15 +168,18 @@ for XPos_Ind = XZero_Ind:X_EndIndex
     end
     f = Fs*(0:L_FT/2)/L_FT;
     if mod(Count,2)==0
-        StartI = 41;
-        EndI = 80;
+        StartI = round(Fs/fDrive/2)+1;
+        EndI = round(Fs/fDrive/2)*2;
     else
         StartI = 1;
-        EndI = 80;
+        EndI = round(Fs/fDrive/2);
+        if MoveSample==0
+            EndI = round(Fs/fDrive);
+        end
     end
     for ii = StartI:EndI
         
-        if ii==StartI
+        if ii==StartI && Count==1
             axes(P1)
             PlotMBLine = plot(B_Big(1:400),M_Big(1:400));
             hold on
@@ -200,7 +203,7 @@ for XPos_Ind = XZero_Ind:X_EndIndex
         
         
         
-        if ii==StartI
+        if ii==StartI && Count==1
             axes(P4)
             FieldOverTime = plot(BPick(1+ii:200+ii),t(1+ii:200+ii));
             ylim([ t(1+ii) t(200+ii)])
@@ -218,7 +221,7 @@ for XPos_Ind = XZero_Ind:X_EndIndex
             
         end
         
-        if ii==StartI
+        if ii==StartI&& Count==1
             axes(P2)
             MagOverTime = plot(t(1+ii:200+ii),MPick(1+ii:200+ii));
             xlim([t(1+ii) t(200+ii)])
@@ -233,7 +236,7 @@ for XPos_Ind = XZero_Ind:X_EndIndex
             
         end
         
-        if ii==StartI
+        if ii==StartI&& Count==1
             axes(P3)
             SigOverTime = plot(t(1+ii:200+ii),Signal(1+ii:200+ii));
             xlim([t(1+ii) t(200+ii)])
@@ -250,7 +253,7 @@ for XPos_Ind = XZero_Ind:X_EndIndex
         end
         
         
-        if ii==StartI
+        if ii==StartI&& Count==1
             axes(P6)
             FTPlot = plot(f/fDrive,P1_FT);
             ylim([0 max(P1_FT_Orig)])
@@ -284,7 +287,7 @@ for XPos_Ind = XZero_Ind:X_EndIndex
         
         
         
-        if ii==StartI
+        if ii==StartI&& Count==1
             
             axes(AxGap14)
             Axes14GapPlot = plot([BPick(ii) BPick(ii)],[0 1],'b--');
@@ -299,7 +302,7 @@ for XPos_Ind = XZero_Ind:X_EndIndex
             set(Axes14GapPlot,'XData',[BPick(ii) BPick(ii)])
         end
         
-        if ii==StartI
+        if ii==StartI && Count==1
             axes(Ax14Over)
             Axes14OverFigPlot = plot([BPick(ii) BPick(ii)],[P1.YLim(1) MPick(ii) ],'b--');
             Ax14Over.Color = 'None';
@@ -314,7 +317,7 @@ for XPos_Ind = XZero_Ind:X_EndIndex
         end
         
         
-        if ii==StartI
+        if ii==StartI && Count==1
             axes(AxGap12)
             Axes12GapPlot = plot([0 1],[MPick(ii) MPick(ii)],'b--');
             AxGap12.Color = 'None';
@@ -330,7 +333,7 @@ for XPos_Ind = XZero_Ind:X_EndIndex
         
         
         
-        if ii==StartI
+        if ii==StartI && Count==1
             axes(Ax12Over)
             
             Axes12OverPlot = plot([BPick(ii) P1.XLim(2) ],[MPick(ii) MPick(ii) ],'b--');
