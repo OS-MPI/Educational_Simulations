@@ -1,4 +1,4 @@
-function [ImageOut] = X_Space_2D_V4(ImageIn,PlottingOn,SaveVid,varargin)
+function [ImageOut] = X_Space2D_Demo(ImageIn,PlottingOn,SaveVid,varargin)
 %% Introduction
 
 % This function is a demonstration of the working principles behind X-Space
@@ -17,9 +17,16 @@ function [ImageOut] = X_Space_2D_V4(ImageIn,PlottingOn,SaveVid,varargin)
 %   SaveVid - if it is 1, the function will save a video of the plotting
 %   with path of "ImageIn_2DXSpaceVid" if the function is given an image
 %   path in, or default to "[Date]_2DXSpaceVid"
+addpath([pwd,'\Called Functions'])
+
 NumVarArgsIn = size(varargin,2);
 if mod(NumVarArgsIn,2)>0
     error('Number of arguments in (past "SaveVid") must be even')
+elseif NumVarArgsIn==0
+        
+        AddNoiseSelected = 0;
+        FilterFundamentalSelect = 0;
+        PlotRateSelect = 0;
 end
 varargin = reshape(varargin,2,NumVarArgsIn/2);
 
@@ -39,7 +46,13 @@ for i = 1:NumVarArgsIn/2
    else
         FilterFundamentalSelect = 0;
    end
-   
+   if strcmp(varargin(1,i),'PlotRate')
+       PlotRate = cell2mat(varargin(2,i));
+       PlotRateSelect = 1; %Indicate the user selected to add noise or not
+   elseif exist('PlotRateSelect','var')
+   else
+        PlotRateSelect = 0;
+   end   
 end
 if isstring(ImageIn) || ischar(ImageIn)
     ImagePath = ImageIn;
@@ -59,7 +72,7 @@ end
 fDriveX = 25.5e3;% Drive Frequency, Hz
 
 Fs= 1e6; % Sampling rate, Hz
-
+PointsPerDrivePrd = round(Fs/fDriveX);
 x = -.03:.001:.03;%FOV meters
 
 DrivePeriods = length(x)*.5;
@@ -159,7 +172,13 @@ if PlottingOn==1
     
     %     EndPt = length(t);
     EndPt = length(t)-1;
-    PlotRate = 3; %This line controls how quickly the plotting occurs by skipping frames. If this is = 1, every frame is recorded, if it is equal to 10, every 10th frame is recorded
+    if PlotRateSelect==0
+        PlotRate = 3; %This line controls how quickly the plotting occurs by skipping frames. If this is = 1, every frame is recorded, if it is equal to 10, every 10th frame is recorded
+    end
+    TimeVecDrivePrds = 10;
+    TimeVecNumPoints = TimeVecDrivePrds*PointsPerDrivePrd;
+    
+        
     %%
     VidCount=1;
     for jj = 1:PlotRate:EndPt
@@ -202,9 +221,16 @@ if PlottingOn==1
         hold on
         plot(t(jj)*1000,squeeze(SigX_Demo(jj)./Vx_Demo(jj)),'bo','LineWidth',2)
         
-        set(gca,'XTick',[])
+        
+%         set(gca,'XTick',[])
         ylabel('Voltage')
-        xlim([0 t(EndPt)*1000])
+        if jj<=ceil(TimeVecNumPoints/2)+1
+        xlim([0 t(TimeVecNumPoints)*1000])
+        elseif jj>ceil(TimeVecNumPoints/2) && jj<EndPt-floor(TimeVecNumPoints/2)
+            xlim([t(jj-floor(TimeVecNumPoints/2)) t(jj+floor(TimeVecNumPoints/2))]*1000)
+        else
+            xlim([t(end-floor(TimeVecNumPoints)) t(end)]*1000)
+        end
         ylim([MinSig MaxSig])
         xlabel('Time (milliseconds)','FontSize',12,'FontWeight','bold')
         xlabel('Time')
