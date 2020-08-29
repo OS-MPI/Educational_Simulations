@@ -23,6 +23,10 @@ if mod(NumVarArgsIn,2)>0
 end
 varargin = reshape(varargin,2,NumVarArgsIn/2);
 
+fDriveX = 25e3;%Hz
+fDriveY = 21e3;%Hz
+Fs= 2.5e6;
+PointSampleLocs = [20 30];
 for i = 1:NumVarArgsIn/2
     if strcmp(varargin(1,i),'AddNoise')
         AddNoise = cell2mat(varargin(2,i));
@@ -38,6 +42,11 @@ for i = 1:NumVarArgsIn/2
     elseif exist('FilterFundamentalSelect','var')
     else
         FilterFundamentalSelect = 0;
+    end
+    
+    if strcmp(varargin(1,i),'PointSampleLocs')
+        PointSampleLocs = cell2mat(varargin(2,i));
+        PointSampleSelect = 1; %Indicate the user selected to add noise or not
     end
     
 end
@@ -59,9 +68,9 @@ ImageIn = ImageIn>max(max(ImageIn))/2; % If you want to make the object binary u
 
 
 
-fDriveX = 25.5e3;%Hz
-fDriveY = 24.e3;%Hz
-Fs= 2.5e6;
+
+
+PointsPerDrivePrd = round(Fs/fDriveX);
 
 x = -.02:.001:.02;%FOV meters
 % x = linspace(-.04,.04,10);
@@ -72,7 +81,7 @@ BfflFunc = @(X) Grad.*X;
 BfflX = BfflFunc(X); %B field of the FFL
 BfflY = BfflFunc(Y); %B field of the FFL
 
-t = 0:1/Fs:10e-3-(1/Fs);
+t = 0:1/Fs:.5e-3-(1/Fs);
 BDriveX(1,1,:) = cos(2*pi*fDriveX*t);
 BDriveX = repmat(BDriveX,length(x),length(x));
 BDriveY(1,1,:) = cos(2*pi*fDriveY*t);
@@ -103,33 +112,65 @@ BX = BfflX+(1.1*Grad*x(end)*BDriveX);
 BfflY = repmat(BfflY,1,1,length(t));
 BY = BfflY+(1.1*Grad*x(end)*BDriveY);
 
-ConcentrationMap = zeros(length(x)^2,1);
-BMag = BX.^2+BY.^2;
+ConcentrationVector = zeros(length(x)*length(y),1);
+BMag = sqrt(BX.^2+BY.^2);
 % BMag(BMag==0) = 1;
 clear BDriveX BDriveY BfflX BfflY
+ConcentrationMap = zeros(size(BMag(:,:,1)));
+
+    
+    if PointSampleLocs(1)>size(ConcentrationMap,2)
+        PointSampleLocs(1) = size(ConcentrationMap,2);
+    end
+    if PointSampleLocs(2)>size(ConcentrationMap,1)
+        PointSampleLocs(2) = size(ConcentrationMap,1);
+    end
+    
+    PointSampleLocs(2) = size(ConcentrationMap,1)-PointSampleLocs(2)+1;
+    
+    ConcentrationMap(PointSampleLocs(2),PointSampleLocs(1)) = 1;
+tmpCoords = [PointSampleLocs(2),PointSampleLocs(1)];
+
 
 %%
-Row_Demo = 10;
-Col_Demo = 5;
 
 
-figure('Position',[100 100 700 700])
-Ax2 = axes('Position',[0.05 0.825 0.9 0.15]);
-Ax4 = axes('Position',[0.05 0.62 0.9 0.125]);
-Ax1 = axes('Position',[0.25 0.025 0.5 0.5]);
+
+figure('Position',[100 100 700 800])
+ AnimationFromBox = annotation('textbox',[.0,0,.2,.025],'String','Animation from OS-MPI.GitHub.io','FitBoxToText','on');
+sgtitle('Lissajous excitation MPI Signal generation')
+Ax2 = axes('Position',[0.05 0.8 0.9 0.1]);
+Ax4 = axes('Position',[0.05 0.62 0.9 0.1]);
+Ax1 = axes('Position',[0.25 0.1 0.5 0.4]);
 
 % Ax3 = axes('Position',[0.7 0.025 0.2 0.2]);
 % imagesc(ParticleLoc_Image)
 %     set(gca,'XTick',[], 'YTick', [])
 % title('True Object')
-Mx_Demo = Langevin(BMag(Col_Demo,Row_Demo,:),1).*BX(Col_Demo,Row_Demo,:)./(BMag(Col_Demo,Row_Demo,:));
-My_Demo = Langevin(BMag(Col_Demo,Row_Demo,:),1).*BY(Col_Demo,Row_Demo,:)./(BMag(Col_Demo,Row_Demo,:));
+Mx_Demo = Langevin(BMag(PointSampleLocs(2),PointSampleLocs(1),:),1).*BX(PointSampleLocs(2),PointSampleLocs(1),:)./(BMag(PointSampleLocs(2),PointSampleLocs(1),:));
+My_Demo = Langevin(BMag(PointSampleLocs(2),PointSampleLocs(1),:),1).*BY(PointSampleLocs(2),PointSampleLocs(1),:)./(BMag(PointSampleLocs(2),PointSampleLocs(1),:));
+TotalMag = sqrt(squeeze(Mx_Demo(:)).^2+squeeze(My_Demo(:)).^2);
+% MaxMag = max([max(Mx_Demo),max(My_Demo)]);
+MaxMag = max(TotalMag(:));
+MinMag = min([min(Mx_Demo),min(My_Demo)]);
+
+
+
+
 SigX_Demo = diff(Mx_Demo(:));
 SigY_Demo = diff(My_Demo(:));
+MaxSig = max([max(SigX_Demo),max(SigY_Demo)]);
+MinSig = min([min(SigX_Demo),min(SigY_Demo)]);
+
+
 
 if PlottingOn==1
     EndPt = length(t)-1;
-    PlotRate = 3000; %This line controls how quickly the plotting occurs by skipping frames. If this is = 1, every frame is recorded, if it is equal to 10, every 10th frame is recorded
+    PlotRate = 1; %This line controls how quickly the plotting occurs by skipping frames. If this is = 1, every frame is recorded, if it is equal to 10, every 10th frame is recorded
+  
+    TimeVecDrivePrds = 10;
+    TimeVecNumPoints = TimeVecDrivePrds*PointsPerDrivePrd;
+    
     %%
     VidCount=1;
     for jj = 1:PlotRate:EndPt
@@ -137,25 +178,44 @@ if PlottingOn==1
         
         axes(Ax1)
         cla
-        imagesc(BX(:,:,jj).^2+BY(:,:,jj).^2)
+        imagesc(x,y,BX(:,:,jj).^2+BY(:,:,jj).^2)
+%         colorbar
         hold on
-        plot(Row_Demo,Col_Demo,'ko','LineWidth',3)
+%         plot(x(length(x)-Col_Demo),y(length(x)-Row_Demo),'ro','LineWidth',3)
+            plot(x(PointSampleLocs(1)),y(PointSampleLocs(2)),'ko','LineWidth',3)
+            
+%             plot(x(PointSampleLocs(1)),y(PointSampleLocs(2)),'r.','LineWidth',5)
+            
+            quiver(x(PointSampleLocs(1)),y(PointSampleLocs(2)),Mx_Demo(jj),My_Demo(jj),5e-3,'r','LineWidth',3,'MaxHeadSize',10)
+%             quiver(x(PointSampleLocs(1)),y(PointSampleLocs(2)),BX(PointSampleLocs(2),PointSampleLocs(1),jj),BY(PointSampleLocs(2),PointSampleLocs(1),jj),3e-2,'k','LineWidth',3,'MaxHeadSize',10)
+
+%         plot(x(Row_Demo),y(Col_Demo),'r.','LineWidth',5)
         
-        plot(Row_Demo,Col_Demo,'r.','LineWidth',5)
-        
+        xlabel('X Position')
+        ylabel('Y Position')
         title('Magnitude of B Field')
         caxis([0 .05])
-        
-        set(gca,'XTick',[], 'YTick', [])
+%         quiver(x(Col_Demo),y(Row_Demo),Mx_Demo(jj),My_Demo(jj),.5e-3,'k','LineWidth',3,'MaxHeadSize',10)
+        legend('Nanoparticles','Magnetization Vector')
+        set(gca,'YDir','normal')
+%         set(gca,'XTick',[], 'YTick', [])
         colormap parula
         axes(Ax2)
         cla
-        % plot(t(1:jj),squeeze(sqrt(Mx(1:jj).^2+Mx(1:jj).^2)))
+%         plot(t(1:jj),squeeze(sqrt(Mx(1:jj).^2+Mx(1:jj).^2)))
         plot(t(1:jj)*1000,squeeze(Mx_Demo(1:jj)),'r')
         hold on
         plot(t(1:jj)*1000,squeeze(My_Demo(1:jj)),'b')
-        legend('X Magnetization','Y Magnetization')
-        xlim([0 t(1000)*1000])
+        plot(t(1:jj)*1000,TotalMag(1:jj),'g')
+        if jj<=ceil(TimeVecNumPoints/2)+1
+            xlim([0 t(TimeVecNumPoints)*1000])
+        elseif jj>ceil(TimeVecNumPoints/2) && jj<EndPt-floor(TimeVecNumPoints/2)
+            xlim([t(jj-floor(TimeVecNumPoints/2)) t(jj+floor(TimeVecNumPoints/2))]*1000)
+        else
+            xlim([t(end-floor(TimeVecNumPoints)) t(end)]*1000)
+        end
+        legend('X Magnetization','Y Magnetization','Net Magnetization')
+        ylim([MinMag MaxMag]*1.1)
         xlabel('Time (milliseconds)','FontSize',12,'FontWeight','bold')
         
         axes(Ax4)
@@ -165,7 +225,8 @@ if PlottingOn==1
         hold on
         plot(t(1:jj)*1000,SigY_Demo(1:jj),'b')
         legend('X Signal','Y Signal')
-        xlim([0 t(EndPt)*1000])
+        ylim([MinSig MaxSig])
+        set(Ax4,'XLim',Ax2.XLim)
         xlabel('Time (milliseconds)','FontSize',12,'FontWeight','bold')
         
         
@@ -193,7 +254,7 @@ Ax =zeros(length(Harmonic_Locs(:)),length(x)*length(y));
 Ay =zeros(length(Harmonic_Locs(:)),length(x)*length(y));
 
 Build_A_Fig = figure('Position',[100 100 1000 800]);
-AMatrixAxes = axes('Position',[.1 .1 .5 .8]);
+AMatrixAxes = axes('Position',[.1 .25 .5 .5]);
 CurrentSampleLocAxes = axes('Position',[.7 .55 .25 .35]);
 
 FTAxes = axes('Position',[.7 .1 .25 .35]);
@@ -201,8 +262,8 @@ PlotRate2 = 3;
   VidCount=1;
 for i = 1:length(x)*length(y) %For each position
     
-    ConcentrationMap(i) = 1;
-    ConcMap_ReShape = reshape(ConcentrationMap,length(x),length(x));
+    ConcentrationVector(i) = 1;
+    ConcMap_ReShape = reshape(ConcentrationVector,length(y),length(x));
     [Col,Row] = find(ConcMap_ReShape==1);
     Mx = Langevin(BMag(Col,Row,:),1).*BX(Col,Row,:)./(BMag(Col,Row,:));
     My = Langevin(BMag(Col,Row,:),1).*BY(Col,Row,:)./(BMag(Col,Row,:));
@@ -214,13 +275,18 @@ for i = 1:length(x)*length(y) %For each position
     if mod(i,PlotRate2)==0
     axes(AMatrixAxes)
     cla
-    imagesc(abs(vertcat(Ax,Ay)))
-    title('The System Matrix')
+    imagesc(abs(Ax))
+    title({'The System Matrix';'Single Rx Coil'})
+    ylabel('Frequency Component')
+    xlabel('Particle Index')
     colorbar
     
     axes(CurrentSampleLocAxes)
     cla
-    imagesc(ConcMap_ReShape)
+    imagesc(x,y,ConcMap_ReShape)
+    set(gca,'YDir','normal')
+    xlabel('X Position')
+    ylabel('Y Position')
     title('Test Sample Location')
     
     axes(FTAxes)
@@ -248,7 +314,7 @@ for i = 1:length(x)*length(y) %For each position
         end
         
     disp(num2str(i))
-    ConcentrationMap(i) = 0;
+    ConcentrationVector(i) = 0;
 end
     if SaveVid==1
         

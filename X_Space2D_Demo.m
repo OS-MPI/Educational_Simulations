@@ -23,36 +23,41 @@ NumVarArgsIn = size(varargin,2);
 if mod(NumVarArgsIn,2)>0
     error('Number of arguments in (past "SaveVid") must be even')
 elseif NumVarArgsIn==0
-        
-        AddNoiseSelected = 0;
-        FilterFundamentalSelect = 0;
-        PlotRateSelect = 0;
+    
+    AddNoiseSelected = 0;
+    FilterFundamentalSelect = 0;
+    PlotRateSelect = 0;
 end
 varargin = reshape(varargin,2,NumVarArgsIn/2);
 
 for i = 1:NumVarArgsIn/2
-   if strcmp(varargin(1,i),'AddNoise')
-       AddNoise = cell2mat(varargin(2,i));
-       AddNoiseSelected = 1; %Indicate the user selected to add noise or not
-   elseif exist('AddNoiseSelected','var')
-   else
+    if strcmp(varargin(1,i),'AddNoise')
+        AddNoise = cell2mat(varargin(2,i));
+        AddNoiseSelected = 1; %Indicate the user selected to add noise or not
+    elseif exist('AddNoiseSelected','var')
+    else
         AddNoiseSelected = 0;
-   end
-   
-   if strcmp(varargin(1,i),'FilterFundamental')
-       FilterFundamental = cell2mat(varargin(2,i));
-       FilterFundamentalSelect = 1; %Indicate the user selected to add noise or not
-   elseif exist('FilterFundamentalSelect','var')
-   else
+    end
+    
+    if strcmp(varargin(1,i),'FilterFundamental')
+        FilterFundamental = cell2mat(varargin(2,i));
+        FilterFundamentalSelect = 1; %Indicate the user selected to add noise or not
+    elseif exist('FilterFundamentalSelect','var')
+    else
         FilterFundamentalSelect = 0;
-   end
-   if strcmp(varargin(1,i),'PlotRate')
-       PlotRate = cell2mat(varargin(2,i));
-       PlotRateSelect = 1; %Indicate the user selected to add noise or not
-   elseif exist('PlotRateSelect','var')
-   else
+    end
+    if strcmp(varargin(1,i),'PlotRate')
+        PlotRate = cell2mat(varargin(2,i));
+        PlotRateSelect = 1; %Indicate the user selected to add noise or not
+    elseif exist('PlotRateSelect','var')
+    else
         PlotRateSelect = 0;
-   end   
+    end
+    if strcmp(varargin(1,i),'PointSample')
+        PointSampleLocs = cell2mat(varargin(2,i));
+        PointSampleSelect = 1; %Indicate the user selected to add noise or not
+    end
+
 end
 if isstring(ImageIn) || ischar(ImageIn)
     ImagePath = ImageIn;
@@ -71,16 +76,28 @@ end
 
 fDriveX = 25.5e3;% Drive Frequency, Hz
 
-Fs= 1e6; % Sampling rate, Hz
+Fs= 2e6; % Sampling rate, Hz
 PointsPerDrivePrd = round(Fs/fDriveX);
 x = -.03:.001:.03;%FOV meters
 
 DrivePeriods = length(x)*.5;
 % y = -.005:.0005:.005;%FOV meters
-y = x;
+y = flipud(x(:));
 [X,Y] = meshgrid(x,y);
 ConcentrationMap = imresize(ImageIn,size(X));
 ConcentrationMap = cast(ConcentrationMap,'double');
+
+if exist('PointSampleSelect','var')
+    ConcentrationMap = zeros(size(ConcentrationMap));
+    if PointSampleLocs(1)>size(ConcentrationMap,2)
+        PointSampleLocs(1) = size(ConcentrationMap,2);
+    end
+    if PointSampleLocs(2)>size(ConcentrationMap,1)
+        PointSampleLocs(2) = size(ConcentrationMap,1);
+    end
+    
+    ConcentrationMap(PointSampleLocs(2),PointSampleLocs(1)) = 1;
+end
 Grad = 1; %Gradient in Tesla per meter, this is somewhat arbitrary as the particle simuation isn't very accurate
 BfflFunc = @(X) Grad.*X; %Set to be an ideal linear gradient, this can be modified to make the gradient non-ideal
 B_FFP_X_TMP = BfflFunc(X); %B field of the FFP
@@ -117,32 +134,33 @@ FFP_Loc_Orig_X = X(BMag(:,:,1)==min(min(BMag(:,:,1)))); %Original locations of t
 FFP_Loc_Orig_Y = Y(BMag(:,:,1)==min(min(BMag(:,:,1))));
 
 
- Mx_Demo = squeeze(sum(sum(Langevin(BMag,ConcentrationMap).*BX./(BMag),2),1));
-    
-    
-    Vx_Demo = diff(BX(1,1,:)); %Taking the velocity at an arbitrary location
-    Vx_Demo=Vx_Demo(:); %making a column
+Mx_Demo = squeeze(sum(sum(Langevin(BMag,ConcentrationMap(:,:,1)).*BX./(BMag),2),1)); %The imrotate is necessary to make sure the coordinates are aligned
+My_Demo = squeeze(sum(sum(Langevin(BMag,ConcentrationMap(:,:,1)).*BY./(BMag),2),1)); %The imrotate is necessary to make sure the coordinates are aligned
 
-    Pos_X = FFP_Loc_Orig_X-cumtrapz(Vx_Demo/Grad);
 
-    
-    Vy_Demo = diff(BY(1,1,:));
-    Vy_Demo = Vy_Demo(:);
-    Pos_Y = -FFP_Loc_Orig_Y+cumtrapz(Vy_Demo/Grad);
-    
-    SigX_Demo = diff(Mx_Demo(:));
-    CroppingFactor = 0.3; %The cropping factor controls how much data is deleted due to being at low velocities. 0.3= 30% of data is deleted. 
-    HighVelocityIndex = abs(Vx_Demo)>(CroppingFactor*max(Vx_Demo(:))); %This is just a vector with ones corresponding to the times where the velocity is above 0.3* the max
-    
+Vx_Demo = diff(BX(1,1,:)); %Taking the velocity at an arbitrary location
+Vx_Demo=Vx_Demo(:); %making a column
 
-    SigX_Demo(not(HighVelocityIndex)) = NaN;
-    
-    
-    MaxSig = max(SigX_Demo(:)./Vx_Demo(:)); %Vel Cor
-    %         MaxSig = max(abs(SigX_Demo(:))); %not Vel Cor
-    
-    MinSig = min(SigX_Demo(:)./Vx_Demo(:)); %Vel Cor
-    %         MinSig = min(abs(SigX_Demo(:))); %Not Vel COr
+Pos_X = FFP_Loc_Orig_X-cumtrapz(Vx_Demo/Grad);
+
+
+Vy_Demo = diff(BY(1,1,:));
+Vy_Demo = Vy_Demo(:);
+Pos_Y = FFP_Loc_Orig_Y-cumtrapz(Vy_Demo/Grad);
+
+SigX_Demo = diff(Mx_Demo(:));
+CroppingFactor = 0.3; %The cropping factor controls how much data is deleted due to being at low velocities. 0.3= 30% of data is deleted.
+HighVelocityIndex = abs(Vx_Demo)>(CroppingFactor*max(Vx_Demo(:))); %This is just a vector with ones corresponding to the times where the velocity is above 0.3* the max
+
+
+SigX_Demo(not(HighVelocityIndex)) = NaN;
+
+
+MaxSig = max(SigX_Demo(:)./Vx_Demo(:)); %Vel Cor
+%         MaxSig = max(abs(SigX_Demo(:))); %not Vel Cor
+
+MinSig = min(SigX_Demo(:)./Vx_Demo(:)); %Vel Cor
+%         MinSig = min(abs(SigX_Demo(:))); %Not Vel COr
 
 
 
@@ -155,19 +173,23 @@ if PlottingOn==1
     end
     
     figure('Position',[100 100 700 700])
+    AnimationFromBox = annotation('textbox',[.0,0,.3,.035],'String','Animation from OS-MPI.GitHub.io','FitBoxToText','on');
     
-    Ax2 = axes('Position',[0.1 0.725 0.8 0.25]);
+    
+    Ax2 = axes('Position',[0.1 0.7 0.8 0.2]);
     % Ax4 = axes('Position',[0.05 0.62 0.9 0.125]);
     if CometOn==0
-        Ax1 = axes('Position',[0.2 0.02 0.6 0.6]);
+        sgtitle('X-Space MPI Excitation and Signal')
+        Ax1 = axes('Position',[0.25 0.1 0.5 0.5]);
     elseif CometOn==1
+        sgtitle('X-Space MPI Demonstration')
         Ax1 = axes('Position',[0.05 0.15 0.4 0.4]);
         Ax5 = axes('Position',[0.55 0.15 0.4 0.4]);
     else
         error('Invalid CometOn Value')
     end
     
-   
+    
     
     
     %     EndPt = length(t);
@@ -178,7 +200,7 @@ if PlottingOn==1
     TimeVecDrivePrds = 10;
     TimeVecNumPoints = TimeVecDrivePrds*PointsPerDrivePrd;
     
-        
+    
     %%
     VidCount=1;
     for jj = 1:PlotRate:EndPt
@@ -186,16 +208,30 @@ if PlottingOn==1
         
         axes(Ax1)
         cla
-        imagesc(sqrt(BX(:,:,jj).^2+BY(:,:,jj).^2))
+        imagesc(x,y,imrotate(sqrt(BX(:,:,jj).^2+BY(:,:,jj).^2),0))
+        set(gca,'YDir','normal')
+        hold on
+        if exist('PointSampleSelect','var')
+            plot(x(PointSampleLocs(1)),y(PointSampleLocs(2)),'ko','LineWidth',3)
+            
+            plot(x(PointSampleLocs(1)),y(PointSampleLocs(2)),'r.','LineWidth',5)
+            
+            quiver(x(PointSampleLocs(1)),y(PointSampleLocs(2)),Mx_Demo(jj),My_Demo(jj),1e-2,'k','LineWidth',3,'MaxHeadSize',10)
+        end
+        
         hold on
         
         quiver(BX(:,:,jj),BY(:,:,jj))
         title('Magnitude of B Field')
         caxis([0 max(max(BMag(:,:,1)))])
         
-        set(gca,'XTick',[], 'YTick', [])
+%         set(gca,'XTick',[], 'YTick', [])
         colormap parula
-        % legend('Nanoparticles')
+        
+       if exist('PointSampleSelect','var')
+           legend('Nanoparticles')
+       end
+       if CometOn==1
         axes(Ax5)
         cla
         plot3(squeeze(Pos_X(1:jj)),Pos_Y(1:jj),squeeze(SigX_Demo(1:jj))./squeeze(Vx_Demo(1:jj))) %Velocity Corrected
@@ -214,7 +250,7 @@ if PlottingOn==1
         xlabel('X position')
         ylabel('Y Position')
         zlabel('VC Signal')
-        
+       end
         axes(Ax2)
         cla
         plot(t(1:end-1)*1000,squeeze(SigX_Demo./Vx_Demo(:)),'b','LineWidth',1)
@@ -222,10 +258,10 @@ if PlottingOn==1
         plot(t(jj)*1000,squeeze(SigX_Demo(jj)./Vx_Demo(jj)),'bo','LineWidth',2)
         
         
-%         set(gca,'XTick',[])
-        ylabel('Voltage')
+        %         set(gca,'XTick',[])
+        ylabel('Vel. Corrected Signal')
         if jj<=ceil(TimeVecNumPoints/2)+1
-        xlim([0 t(TimeVecNumPoints)*1000])
+            xlim([0 t(TimeVecNumPoints)*1000])
         elseif jj>ceil(TimeVecNumPoints/2) && jj<EndPt-floor(TimeVecNumPoints/2)
             xlim([t(jj-floor(TimeVecNumPoints/2)) t(jj+floor(TimeVecNumPoints/2))]*1000)
         else
@@ -258,7 +294,7 @@ end
 if AddNoiseSelected == 0
     AddNoise = 0; %if this is 1, then Noise will be added at a magnitude determined by NoiseMag By default it is 0
 end
-NoiseMag = 0.5; %Magnitude of noise relative to the max signal 
+NoiseMag = 0.5; %Magnitude of noise relative to the max signal
 NoisePct = NoiseMag*100;
 
 if AddNoise==1
@@ -272,7 +308,7 @@ jj = length(t)-1;
 plot3(squeeze(Pos_X(1:jj)),Pos_Y(1:jj),squeeze(SigX_Demo(1:jj))./squeeze(Vx_Demo(1:jj))) %Velocity COrrected
 hold on
 scatter3(squeeze(Pos_X(1:jj)),Pos_Y(1:jj),squeeze(SigX_Demo(1:jj))./squeeze(Vx_Demo(1:jj)),30,squeeze(SigX_Demo(1:jj))./squeeze(Vx_Demo(1:jj)),'Filled') %Velocity Corrected
-      
+
 xlim([min(Pos_X) max(Pos_X)])
 ylim([min(Pos_Y) max(Pos_Y)])
 % zlim([0 MaxSig])
@@ -311,7 +347,7 @@ xlabel( 'X Position')
 ylabel('Y Position')
 title('Surface plot of interpolated data')
 % figure,surf(Interp_Data_F0Cor);
-figure,imagesc(flipud(Interp_Data))
+figure,imagesc((Interp_Data))
 % figure,imagesc(flipud(Interp_Data_F0Cor))
 
 axis image
