@@ -7,7 +7,7 @@ if mod(NumVarArgsIn,2)>0
 end
 varargin = reshape(varargin,2,NumVarArgsIn/2);
 fs = 20e3;% Hz sampling frequency of sound
-SoundFreq = 1e3; %Hz, Frequency of sound played
+SoundFreq = 440; %Hz, Frequency of sound played
 DotTime = 0.1; %How long a dot is
 for i = 1:NumVarArgsIn/2
     if strcmpi(varargin(1,i),'Fs')

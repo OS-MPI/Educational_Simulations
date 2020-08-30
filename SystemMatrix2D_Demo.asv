@@ -9,7 +9,7 @@ function [ImageOut] = SystemMatrix2D_Demo(ImageIn,PlottingOn,SaveVid,varargin)
 % This function was written as a teaching tool and you should feel free to
 % use it as such.
 
-% The inputs are:
+% The required inputs are:
 %   ImageIn - A path to the object you want to simulate, or the object itself. It should be
 %   a 2D matrix of numeric values
 %   PlottingOn - Logical (1=on, 0 =off) that either enables or disables the
@@ -17,6 +17,9 @@ function [ImageOut] = SystemMatrix2D_Demo(ImageIn,PlottingOn,SaveVid,varargin)
 %   SaveVid - if it is 1, the function will save a video of the plotting
 %   with path of "ImageIn__LissajousVid" if the function is given an image
 %   path in, or default to "[Date]_LissajousVid"
+
+% Optionally, one can specify the X Drive frequency (fDriveX), Y Drive
+% Frequency, sampling 
 NumVarArgsIn = size(varargin,2);
 if mod(NumVarArgsIn,2)>0
     error('Number of arguments in (past "SaveVid") must be even')
@@ -81,7 +84,7 @@ BfflFunc = @(X) Grad.*X;
 BfflX = BfflFunc(X); %B field of the FFL
 BfflY = BfflFunc(Y); %B field of the FFL
 
-t = 0:1/Fs:1e-3-(1/Fs);
+t = 0:1/Fs:30e-3-(1/Fs);
 BDriveX(1,1,:) = cos(2*pi*fDriveX*t);
 BDriveX = repmat(BDriveX,length(x),length(x));
 BDriveY(1,1,:) = cos(2*pi*fDriveY*t);
@@ -166,7 +169,7 @@ MinSig = min([min(SigX_Demo),min(SigY_Demo)]);
 
 if PlottingOn==1
     EndPt = length(t)-1;
-    PlotRate = 6; %This line controls how quickly the plotting occurs by skipping frames. If this is = 1, every frame is recorded, if it is equal to 10, every 10th frame is recorded
+    PlotRate = 1; %This line controls how quickly the plotting occurs by skipping frames. If this is = 1, every frame is recorded, if it is equal to 10, every 10th frame is recorded
   
     TimeVecDrivePrds = 10;
     TimeVecNumPoints = TimeVecDrivePrds*PointsPerDrivePrd;
@@ -297,11 +300,11 @@ for i = 1:length(x)*length(y) %For each position
     hold on
     Mag_Y =abs(Ax(1:round(length(Harmonic_Locs)/2)-1,i));
     Phase_Y =angle(Ax(1:round(length(Harmonic_Locs)/2)-1,i));
-    plot(Mag_Y)
+%     plot(Mag_Y)
     title('Magnitude of Frequency Components')
     xlabel('Frequency')
     ylabel('Magnitude')
-    legend('X Signal','Y Signal')
+%     legend('X Signal')
     
     sgtitle('Constructing the "System Matrix"','FontSize',16,'FontWeight','Bold')
     pause(.01)

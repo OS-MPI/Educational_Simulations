@@ -9,7 +9,7 @@ function [ImageOut] = SystemMatrix2D_Demo(ImageIn,PlottingOn,SaveVid,varargin)
 % This function was written as a teaching tool and you should feel free to
 % use it as such.
 
-% The inputs are:
+% The required inputs are:
 %   ImageIn - A path to the object you want to simulate, or the object itself. It should be
 %   a 2D matrix of numeric values
 %   PlottingOn - Logical (1=on, 0 =off) that either enables or disables the
@@ -17,6 +17,10 @@ function [ImageOut] = SystemMatrix2D_Demo(ImageIn,PlottingOn,SaveVid,varargin)
 %   SaveVid - if it is 1, the function will save a video of the plotting
 %   with path of "ImageIn__LissajousVid" if the function is given an image
 %   path in, or default to "[Date]_LissajousVid"
+
+% Optionally, one can specify the X Drive frequency (fDriveX), Y Drive
+% Frequency, sampling rate, sample particle position, and the animation
+% plotting rate (how frequently images are plotted)
 NumVarArgsIn = size(varargin,2);
 if mod(NumVarArgsIn,2)>0
     error('Number of arguments in (past "SaveVid") must be even')
@@ -27,6 +31,8 @@ fDriveX = 25e3;%Hz
 fDriveY = 21e3;%Hz
 Fs= 2.5e6;
 PointSampleLocs = [20 30];
+PlotRate = 1; %This line controls how quickly the plotting occurs by skipping frames. If this is = 1, every frame is recorded, if it is equal to 10, every 10th frame is recorded
+
 for i = 1:NumVarArgsIn/2
     if strcmp(varargin(1,i),'AddNoise')
         AddNoise = cell2mat(varargin(2,i));
@@ -35,18 +41,30 @@ for i = 1:NumVarArgsIn/2
     else
         AddNoiseSelected = 0;
     end
-    
-    if strcmp(varargin(1,i),'FilterFundamental')
-        FilterFundamental = cell2mat(varargin(2,i));
-        FilterFundamentalSelect = 1; %Indicate the user selected to add noise or not
-    elseif exist('FilterFundamentalSelect','var')
-    else
-        FilterFundamentalSelect = 0;
-    end
+
     
     if strcmp(varargin(1,i),'PointSampleLocs')
         PointSampleLocs = cell2mat(varargin(2,i));
-        PointSampleSelect = 1; %Indicate the user selected to add noise or not
+        PointSampleSelect = 1; 
+    end
+    if strcmp(varargin(1,i),'fs')
+        fs = cell2mat(varargin(2,i));
+    end
+    
+    if strcmp(varargin(1,i),'fDriveX')
+        fDriveX = cell2mat(varargin(2,i));
+    end
+    
+    if strcmp(varargin(1,i),'fDriveY')
+        fDriveY = cell2mat(varargin(2,i));
+    end
+    
+    if strcmp(varargin(1,i),'PlotRate')
+        PlotRate = cell2mat(varargin(2,i));
+    end
+    
+    if strcmp(varargin(1,i),'SoundOn')
+        SoundOn = cell2mat(varargin(2,i)); %Any Value of SoundOn besides 0 will cause beeping when completed
     end
     
 end
@@ -81,7 +99,7 @@ BfflFunc = @(X) Grad.*X;
 BfflX = BfflFunc(X); %B field of the FFL
 BfflY = BfflFunc(Y); %B field of the FFL
 
-t = 0:1/Fs:.5e-3-(1/Fs);
+t = 0:1/Fs:30e-3-(1/Fs);
 BDriveX(1,1,:) = cos(2*pi*fDriveX*t);
 BDriveX = repmat(BDriveX,length(x),length(x));
 BDriveY(1,1,:) = cos(2*pi*fDriveY*t);
@@ -118,17 +136,17 @@ BMag = sqrt(BX.^2+BY.^2);
 clear BDriveX BDriveY BfflX BfflY
 ConcentrationMap = zeros(size(BMag(:,:,1)));
 
-    
-    if PointSampleLocs(1)>size(ConcentrationMap,2)
-        PointSampleLocs(1) = size(ConcentrationMap,2);
-    end
-    if PointSampleLocs(2)>size(ConcentrationMap,1)
-        PointSampleLocs(2) = size(ConcentrationMap,1);
-    end
-    
-    PointSampleLocs(2) = size(ConcentrationMap,1)-PointSampleLocs(2)+1;
-    
-    ConcentrationMap(PointSampleLocs(2),PointSampleLocs(1)) = 1;
+
+if PointSampleLocs(1)>size(ConcentrationMap,2)
+    PointSampleLocs(1) = size(ConcentrationMap,2);
+end
+if PointSampleLocs(2)>size(ConcentrationMap,1)
+    PointSampleLocs(2) = size(ConcentrationMap,1);
+end
+
+PointSampleLocs(2) = size(ConcentrationMap,1)-PointSampleLocs(2)+1;
+
+ConcentrationMap(PointSampleLocs(2),PointSampleLocs(1)) = 1;
 tmpCoords = [PointSampleLocs(2),PointSampleLocs(1)];
 
 
@@ -137,7 +155,7 @@ tmpCoords = [PointSampleLocs(2),PointSampleLocs(1)];
 
 
 figure('Position',[100 100 700 800])
- AnimationFromBox = annotation('textbox',[.0,0,.2,.025],'String','Animation from OS-MPI.GitHub.io','FitBoxToText','on');
+AnimationFromBox = annotation('textbox',[.0,0,.2,.025],'String','Animation from OS-MPI.GitHub.io','FitBoxToText','on');
 sgtitle('Lissajous excitation MPI Signal generation')
 Ax2 = axes('Position',[0.05 0.8 0.9 0.1]);
 Ax4 = axes('Position',[0.05 0.62 0.9 0.1]);
@@ -166,8 +184,7 @@ MinSig = min([min(SigX_Demo),min(SigY_Demo)]);
 
 if PlottingOn==1
     EndPt = length(t)-1;
-    PlotRate = 1; %This line controls how quickly the plotting occurs by skipping frames. If this is = 1, every frame is recorded, if it is equal to 10, every 10th frame is recorded
-  
+    
     TimeVecDrivePrds = 10;
     TimeVecNumPoints = TimeVecDrivePrds*PointsPerDrivePrd;
     
@@ -179,30 +196,25 @@ if PlottingOn==1
         axes(Ax1)
         cla
         imagesc(x,y,BX(:,:,jj).^2+BY(:,:,jj).^2)
-%         colorbar
+        %         colorbar
         hold on
-%         plot(x(length(x)-Col_Demo),y(length(x)-Row_Demo),'ro','LineWidth',3)
-            plot(x(PointSampleLocs(1)),y(PointSampleLocs(2)),'ko','LineWidth',3)
-            
-%             plot(x(PointSampleLocs(1)),y(PointSampleLocs(2)),'r.','LineWidth',5)
-            
-            quiver(x(PointSampleLocs(1)),y(PointSampleLocs(2)),Mx_Demo(jj),My_Demo(jj),5e-3,'r','LineWidth',3,'MaxHeadSize',10)
-%             quiver(x(PointSampleLocs(1)),y(PointSampleLocs(2)),BX(PointSampleLocs(2),PointSampleLocs(1),jj),BY(PointSampleLocs(2),PointSampleLocs(1),jj),3e-2,'k','LineWidth',3,'MaxHeadSize',10)
-
-%         plot(x(Row_Demo),y(Col_Demo),'r.','LineWidth',5)
+        plot(x(PointSampleLocs(1)),y(PointSampleLocs(2)),'ko','LineWidth',3)
+        
+        
+        quiver(x(PointSampleLocs(1)),y(PointSampleLocs(2)),Mx_Demo(jj),My_Demo(jj),5e-3,'r','LineWidth',3,'MaxHeadSize',10)
+        
         
         xlabel('X Position')
         ylabel('Y Position')
         title('Magnitude of B Field')
         caxis([0 .05])
-%         quiver(x(Col_Demo),y(Row_Demo),Mx_Demo(jj),My_Demo(jj),.5e-3,'k','LineWidth',3,'MaxHeadSize',10)
         legend('Nanoparticles','Magnetization Vector')
         set(gca,'YDir','normal')
-%         set(gca,'XTick',[], 'YTick', [])
+        %         set(gca,'XTick',[], 'YTick', [])
         colormap parula
         axes(Ax2)
         cla
-%         plot(t(1:jj),squeeze(sqrt(Mx(1:jj).^2+Mx(1:jj).^2)))
+        %         plot(t(1:jj),squeeze(sqrt(Mx(1:jj).^2+Mx(1:jj).^2)))
         plot(t(1:jj)*1000,squeeze(Mx_Demo(1:jj)),'r')
         hold on
         plot(t(1:jj)*1000,squeeze(My_Demo(1:jj)),'b')
@@ -259,7 +271,7 @@ CurrentSampleLocAxes = axes('Position',[.7 .55 .25 .35]);
 
 FTAxes = axes('Position',[.7 .1 .25 .35]);
 PlotRate2 = 3;
-  VidCount=1;
+VidCount=1;
 for i = 1:length(x)*length(y) %For each position
     
     ConcentrationVector(i) = 1;
@@ -268,71 +280,75 @@ for i = 1:length(x)*length(y) %For each position
     Mx = Langevin(BMag(Col,Row,:),1).*BX(Col,Row,:)./(BMag(Col,Row,:));
     My = Langevin(BMag(Col,Row,:),1).*BY(Col,Row,:)./(BMag(Col,Row,:));
     
-
+    
     Ax(:,i) = Mag_2_A(squeeze(Mx),Harmonic_Locs);
     Ay(:,i) = Mag_2_A(squeeze(My),Harmonic_Locs);
     
     if mod(i,PlotRate2)==0
-    axes(AMatrixAxes)
-    cla
-    imagesc(abs(Ax))
-    title({'The System Matrix';'Single Rx Coil'})
-    ylabel('Frequency Component')
-    xlabel('Particle Index')
-    colorbar
-    
-    axes(CurrentSampleLocAxes)
-    cla
-    imagesc(x,y,ConcMap_ReShape)
-    set(gca,'YDir','normal')
-    xlabel('X Position')
-    ylabel('Y Position')
-    title('Test Sample Location')
-    
-    axes(FTAxes)
-    cla
-    Mag_X =abs(Ax(1:round(length(Harmonic_Locs)/2)-1,i));
-    Phase_X =angle(Ax(1:round(length(Harmonic_Locs)/2)-1,i));
-    plot(Mag_X)
-    hold on
-    Mag_Y =abs(Ax(1:round(length(Harmonic_Locs)/2)-1,i));
-    Phase_Y =angle(Ax(1:round(length(Harmonic_Locs)/2)-1,i));
-    plot(Mag_Y)
-    title('Magnitude of Frequency Components')
-    xlabel('Frequency')
-    ylabel('Magnitude')
-    legend('X Signal','Y Signal')
-    
-    sgtitle('Constructing the "System Matrix"','FontSize',16,'FontWeight','Bold')
-    pause(.01)
-    end
-            
-        if SaveVid==1
-            frame_2(VidCount) = getframe(gcf);
-            
-            VidCount = VidCount+1;
-        end
+        axes(AMatrixAxes)
+        cla
+        imagesc(abs(Ax))
+        title({'The System Matrix';'Single Rx Coil'})
+        ylabel('Frequency Component')
+        xlabel('Particle Index')
+        colorbar
         
+        axes(CurrentSampleLocAxes)
+        cla
+        imagesc(x,y,ConcMap_ReShape)
+        set(gca,'YDir','normal')
+        xlabel('X Position')
+        ylabel('Y Position')
+        title('Test Sample Location')
+        
+        axes(FTAxes)
+        cla
+        Mag_X =abs(Ax(1:round(length(Harmonic_Locs)/2)-1,i));
+        Phase_X =angle(Ax(1:round(length(Harmonic_Locs)/2)-1,i));
+        plot(Mag_X)
+        hold on
+        Mag_Y =abs(Ax(1:round(length(Harmonic_Locs)/2)-1,i));
+        Phase_Y =angle(Ax(1:round(length(Harmonic_Locs)/2)-1,i));
+        %     plot(Mag_Y)
+        title('Magnitude of Frequency Components')
+        xlabel('Frequency')
+        ylabel('Magnitude')
+        %     legend('X Signal')
+        
+        sgtitle('Constructing the "System Matrix"','FontSize',16,'FontWeight','Bold')
+        pause(.01)
+    end
+    
+    if SaveVid==1
+        frame_2(VidCount) = getframe(gcf);
+        
+        VidCount = VidCount+1;
+    end
+    
     disp(num2str(i))
     ConcentrationVector(i) = 0;
 end
-    if SaveVid==1
-        
-        VideoPath = [ImagePath,'_BuildSystemMatrix'];
-        
-        v = VideoWriter(VideoPath,'MPEG-4');
-        open(v)
-        writeVideo(v,frame_2)
-        close(v)
-    end
+if SaveVid==1
+    
+    VideoPath = [ImagePath,'_BuildSystemMatrix'];
+    
+    v = VideoWriter(VideoPath,'MPEG-4');
+    open(v)
+    writeVideo(v,frame_2)
+    close(v)
+end
 
 A = vertcat(Ax,Ay);
 
-sound(sawtooth(2*pi*1e3*(0:1/10e3:1)).*sin(2*pi*1e3*(0:1/10e3:1)),10e3) %Obnoxious beeping to alert me it is done
-pause(1.5)
-sound(sawtooth(2*pi*1e3*(0:1/10e3:1)).*sin(2*pi*1e3*(0:1/10e3:1)),10e3) %More obnoxious beeping
+% sound(sawtooth(2*pi*1e3*(0:1/10e3:1)).*sin(2*pi*1e3*(0:1/10e3:1)),10e3) %Obnoxious beeping to alert me it is done
+% pause(1.5)
+% sound(sawtooth(2*pi*1e3*(0:1/10e3:1)).*sin(2*pi*1e3*(0:1/10e3:1)),10e3) %More obnoxious beeping
 
-
+if exist('SoundOn','var')
+    if SoundOn~=0
+        MorseBeep('.... ..');
+    end
+end
 
 %%
 
@@ -353,7 +369,7 @@ F_Test_X  = fft(signal_Test_X)';
 F_Test_Y  = fft(signal_Test_Y)';
 
 F_Test = [F_Test_X(Harmonic_Locs) ; F_Test_Y(Harmonic_Locs)] ;
- 
+
 TestRecon = pcg(A'*A,A'*F_Test,1e-9,300);
 OneD_Image = abs(TestRecon);
 figure,imagesc(reshape(OneD_Image,length(y),length(y)))
