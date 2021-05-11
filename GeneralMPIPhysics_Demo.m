@@ -1,4 +1,16 @@
 function [] = GeneralMPIPhysics_Demo(SaveVid,varargin)
+%% Function Inputs/ help
+
+% SaveVid is a binary option, if you want to save a video (1) or not (0)
+
+% For Varargin:
+% - FileName: is the file name that will be saved
+% - VidFormat: either "gif" or "mp4"
+% - MoveSample: Binary 1/0 if you want the sample to move
+% - SoundOn: Binary 1/0 if you want it to make a beep when it finishes
+
+%%
+
 addpath([pwd,'\Called Functions'])
 
 VidFormat='mp4'; %Default. WIll change if user enters something else
